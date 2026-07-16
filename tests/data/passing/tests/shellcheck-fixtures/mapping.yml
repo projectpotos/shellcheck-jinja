@@ -1,0 +1,4 @@
+---
+templates/greet.sh.j2:
+  - greet.sh.yml
+  - greet.sh.verbose.yml

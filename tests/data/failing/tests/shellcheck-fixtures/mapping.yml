@@ -1,0 +1,2 @@
+---
+templates/bad.sh.j2: bad.sh.yml

@@ -1,0 +1,31 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.17
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: yamllint
+        name: yamllint
+        entry: uv run --group lint yamllint
+        language: system
+        types: [yaml]
+      - id: pytest
+        name: pytest
+        entry: uv run --group test pytest tests/
+        language: system
+        types: [python]
+        pass_filenames: false

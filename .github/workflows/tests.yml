@@ -1,0 +1,57 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Setup uv project
+        uses: projectpotos/actions/setup-uv@cc9fa23313351dbc2443f830da4a111f96d293c6 # v0.2.2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run pytest
+        run: uv run --frozen --group test pytest tests/ -v --cov
+
+  lint:
+    permissions:
+      contents: read
+    uses: projectpotos/actions/.github/workflows/test-lint.yaml@cc9fa23313351dbc2443f830da4a111f96d293c6 # v0.2.2
+    with:
+      ruff: true
+      ruff-group: lint
+
+  all_green:
+    name: all_green
+    if: ${{ always() }}
+    needs:
+      - pytest
+      - lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Verify no required job failed or was cancelled
+        uses: projectpotos/actions/all-green@cc9fa23313351dbc2443f830da4a111f96d293c6 # v0.2.2
+        with:
+          needs: ${{ toJSON(needs) }}

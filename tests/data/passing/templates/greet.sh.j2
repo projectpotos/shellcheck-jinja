@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+{% if verbose %}
+echo "being verbose"
+{% endif %}
+echo {{ greeting | quote }}
