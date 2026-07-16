@@ -15,4 +15,4 @@ jobs:
   release:
     permissions:
       contents: write # go-semantic-release creates tags and GitHub releases
-    uses: projectpotos/actions/.github/workflows/semantic-release.yaml@cc9fa23313351dbc2443f830da4a111f96d293c6 # v0.2.2
+    uses: projectpotos/actions/.github/workflows/semantic-release.yaml@ac5f831258705d1d8be540219f3167e208812395 # v0.4.0
