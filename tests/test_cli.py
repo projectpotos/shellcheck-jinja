@@ -105,5 +105,46 @@ def test_path_base_and_fixtures_dir_args(repo, capsys):
     write(repo, "src/templates/greet.sh.j2", CLEAN_TEMPLATE)
     write(repo, "checks/greet.sh.yml", "greeting: hello\n")
     write(repo, "checks/mapping.yml", "greet.sh.j2: greet.sh.yml\n")
-    assert main(["--path-base", "src/templates", "--fixtures-dir", "checks"]) == 0
+    assert main(["--path-base", "src/templates", "--fixtures-dir", "checks", "--update"]) == 0
     assert "rendered src/templates/greet.sh.j2" in capsys.readouterr().out
+    assert (repo / "checks/snapshots/greet.sh").is_file()
+
+
+def test_missing_snapshot_fails(repo, capsys):
+    write(repo, "templates/greet.sh.j2", CLEAN_TEMPLATE)
+    write(repo, "tests/shellcheck-fixtures/greet.sh.yml", "greeting: hello\nverbose: false\n")
+    write(repo, "tests/shellcheck-fixtures/mapping.yml", "templates/greet.sh.j2: greet.sh.yml\n")
+    assert main([]) == 1
+    assert "snapshot missing" in capsys.readouterr().err
+
+
+def test_outdated_snapshot_fails(repo, capsys):
+    write(repo, "templates/greet.sh.j2", CLEAN_TEMPLATE)
+    write(repo, "tests/shellcheck-fixtures/greet.sh.yml", "greeting: hello\nverbose: false\n")
+    write(repo, "tests/shellcheck-fixtures/mapping.yml", "templates/greet.sh.j2: greet.sh.yml\n")
+    write(repo, "tests/shellcheck-fixtures/snapshots/greet.sh", "#!/bin/bash\necho outdated\n")
+    assert main([]) == 1
+    assert "snapshot out of date" in capsys.readouterr().err
+
+
+def test_stale_snapshot_fails(repo, capsys):
+    write(repo, "templates/greet.sh.j2", CLEAN_TEMPLATE)
+    write(repo, "tests/shellcheck-fixtures/greet.sh.yml", "greeting: hello\nverbose: false\n")
+    write(repo, "tests/shellcheck-fixtures/mapping.yml", "templates/greet.sh.j2: greet.sh.yml\n")
+    assert main(["--update"]) == 0
+    write(repo, "tests/shellcheck-fixtures/snapshots/gone.sh", "#!/bin/bash\n")
+    assert main([]) == 1
+    assert "stale snapshot" in capsys.readouterr().err
+
+
+def test_update_writes_and_prunes_snapshots(repo, capsys):
+    write(repo, "templates/greet.sh.j2", CLEAN_TEMPLATE)
+    write(repo, "tests/shellcheck-fixtures/greet.sh.yml", "greeting: hello\nverbose: false\n")
+    write(repo, "tests/shellcheck-fixtures/mapping.yml", "templates/greet.sh.j2: greet.sh.yml\n")
+    write(repo, "tests/shellcheck-fixtures/snapshots/gone.sh", "#!/bin/bash\n")
+    assert main(["--update"]) == 0
+    assert "removed stale snapshot" in capsys.readouterr().out
+    assert not (repo / "tests/shellcheck-fixtures/snapshots/gone.sh").exists()
+    snapshot = repo / "tests/shellcheck-fixtures/snapshots/greet.sh"
+    assert snapshot.read_text() == '#!/bin/bash\necho "hello"\n'
+    assert main([]) == 0

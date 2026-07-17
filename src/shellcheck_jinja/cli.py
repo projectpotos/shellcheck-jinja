@@ -6,7 +6,6 @@ import argparse
 import subprocess
 import sys
 import sysconfig
-import tempfile
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ import yaml
 from ansible.plugins.loader import filter_loader
 
 MAPPING_FILE = "mapping.yml"
+SNAPSHOT_DIR = "snapshots"
 
 
 def _shellcheck() -> Path:
@@ -87,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("."),
         help="base directory the mapped template paths are relative to (default: %(default)s)",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="regenerate the snapshot files",
+    )
     args = parser.parse_args(argv)
 
     mapping_path = args.fixtures_dir / MAPPING_FILE
@@ -100,52 +105,67 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     errors: list[str] = []
-    rendered: list[str] = []
+    snapshots: dict[Path, str] = {}
+    snapshot_dir = args.fixtures_dir / SNAPSHOT_DIR
     referenced = {args.fixtures_dir / fixture for fixtures in mapping.values() for fixture in fixtures}
 
     errors.extend(
         f"{orphan}: fixture not referenced in {mapping_path}"
         for orphan in sorted(args.fixtures_dir.rglob("*.yml"))
-        if orphan != mapping_path and orphan not in referenced
+        if orphan != mapping_path and orphan not in referenced and snapshot_dir not in orphan.parents
     )
 
-    # The tempdir lives inside the working tree so shellcheck picks up a
-    # repository .shellcheckrc when checking the rendered scripts.
-    with tempfile.TemporaryDirectory(prefix=".shellcheck-jinja-", dir=".") as tmp:
-        tmpdir = Path(tmp)
-        for template, fixtures in sorted(mapping.items()):
-            template_path = args.path_base / template
-            if not template_path.is_file():
-                errors.append(f"{mapping_path}: {template}: no such template under {args.path_base}")
+    for template, fixtures in sorted(mapping.items()):
+        template_path = args.path_base / template
+        if not template_path.is_file():
+            errors.append(f"{mapping_path}: {template}: no such template under {args.path_base}")
+            continue
+        env = _environment(template_path.parent)
+        for fixture_name in fixtures:
+            fixture = args.fixtures_dir / fixture_name
+            if not fixture.is_file():
+                errors.append(f"{mapping_path}: {template}: fixture {fixture} not found")
                 continue
-            env = _environment(template_path.parent)
-            for fixture_name in fixtures:
-                fixture = args.fixtures_dir / fixture_name
-                if not fixture.is_file():
-                    errors.append(f"{mapping_path}: {template}: fixture {fixture} not found")
-                    continue
-                context = yaml.safe_load(fixture.read_text()) or {}
-                if not isinstance(context, dict):
-                    errors.append(f"{fixture}: fixture must be a YAML mapping")
-                    continue
-                out = tmpdir / _output_name(fixture_name)
-                try:
-                    out.write_text(env.get_template(template_path.name).render(**context))
-                except jinja2.TemplateError as exc:
-                    errors.append(f"{template_path} with {fixture}: {type(exc).__name__}: {exc}")
-                    continue
-                print(f"shellcheck-jinja: rendered {template_path} with {fixture}")
-                rendered.append(out.name)
+            context = yaml.safe_load(fixture.read_text()) or {}
+            if not isinstance(context, dict):
+                errors.append(f"{fixture}: fixture must be a YAML mapping")
+                continue
+            try:
+                content = env.get_template(template_path.name).render(**context)
+            except jinja2.TemplateError as exc:
+                errors.append(f"{template_path} with {fixture}: {type(exc).__name__}: {exc}")
+                continue
+            print(f"shellcheck-jinja: rendered {template_path} with {fixture}")
+            snapshots[snapshot_dir / _output_name(fixture_name)] = content
 
-        if errors:
-            for error in errors:
-                print(f"shellcheck-jinja: error: {error}", file=sys.stderr)
-            return 1
-        if not rendered:
-            print("shellcheck-jinja: nothing mapped, nothing to do")
-            return 0
+    if not errors:
+        existing = snapshot_dir.iterdir() if snapshot_dir.is_dir() else ()
+        stale = sorted(path for path in existing if path not in snapshots)
+        if args.update:
+            if snapshots:
+                snapshot_dir.mkdir(exist_ok=True)
+            for path, content in snapshots.items():
+                path.write_text(content)
+            for path in stale:
+                path.unlink()
+                print(f"shellcheck-jinja: removed stale snapshot {path}")
+        else:
+            for path, content in snapshots.items():
+                if not path.is_file():
+                    errors.append(f"{path}: snapshot missing (run shellcheck-jinja --update)")
+                elif path.read_text() != content:
+                    errors.append(f"{path}: snapshot out of date (run shellcheck-jinja --update)")
+            errors.extend(f"{path}: stale snapshot (run shellcheck-jinja --update)" for path in stale)
 
-        return subprocess.run([_shellcheck(), "--", *rendered], cwd=tmpdir, check=False).returncode
+    if errors:
+        for error in errors:
+            print(f"shellcheck-jinja: error: {error}", file=sys.stderr)
+        return 1
+    if not snapshots:
+        print("shellcheck-jinja: nothing mapped, nothing to do")
+        return 0
+
+    return subprocess.run([_shellcheck(), "--", *sorted(map(str, snapshots))], check=False).returncode
 
 
 if __name__ == "__main__":

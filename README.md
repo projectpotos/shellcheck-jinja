@@ -7,13 +7,14 @@ To render the actual script, you have to provide fixtures with the expected jinj
 ## Usage
 
 ```console
-$ uv run shellcheck-jinja [--fixtures-dir tests/shellcheck-fixtures] [--path-base .]
+$ uv run shellcheck-jinja [--fixtures-dir tests/shellcheck-fixtures] [--path-base .] [--update]
 ```
 
 - `--fixtures-dir`: directory containing the mapping and fixture files
   (default `tests/shellcheck-fixtures`).
 - `--path-base`: base directory the mapped template paths are relative to
   (default `.`).
+- `--update`: regenerate the snapshot files
 
 ## File mapping
 
@@ -39,6 +40,19 @@ The rendering tries to match the behavior from ansible as close as possible.
 
 Currently the jinja environment provides the all the builtin ansible filters. Filter plugins from other collections are not yet supported. Also, some variables like `ansible_facts` wont be populated automatically. If you need such variables, make sure to include them in your fixtures.
 
+## Snapshots
+
+The rendered scripts are stored as snapshot files in a `snapshots/` directory
+inside the fixtures directory and are committed to the repository. This makes
+the actually rendered scripts visible in reviews: any change to a template or
+fixture shows up as a diff of the resulting shell script.
+
+By default the tool renders every template and fails if a snapshot is missing,
+out of date, or no longer produced by any mapping entry. Run with `--update`
+to (re)generate the snapshots and remove stale ones, then commit the result.
+Shellcheck runs against the snapshot files, so a repository `.shellcheckrc`
+applies to them as usual.
+
 
 ## CI and pre-commit
 
@@ -51,7 +65,7 @@ as a pre-commit hook:
   hooks:
     - id: shellcheck-jinja
       name: shellcheck-jinja
-      entry: uv run shellcheck-jinja
+      entry: uv run shellcheck-jinja --update
       language: system
       files: (\.sh\.j2$|^tests/shellcheck-fixtures/)
       pass_filenames: false
