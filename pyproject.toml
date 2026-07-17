@@ -15,11 +15,13 @@ dependencies = [
 shellcheck-jinja = "shellcheck_jinja.cli:main"
 
 [dependency-groups]
-test = [
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
+test = ["pytest>=9.1.1", "pytest-cov>=7.1.0"]
+dev = [
+    { include-group = "test" },
+    "yamllint~=1.38.0",
+    "ruff>=0.15.20",
+    "pre-commit>=4.6.0",
 ]
-lint = ["ruff>=0.15.20", "yamllint>=1.37"]
 
 [build-system]
 requires = ["hatchling"]

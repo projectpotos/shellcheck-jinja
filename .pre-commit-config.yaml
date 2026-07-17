@@ -20,7 +20,7 @@ repos:
     hooks:
       - id: yamllint
         name: yamllint
-        entry: uv run --group lint yamllint
+        entry: uv run --group dev yamllint
         language: system
         types: [yaml]
       - id: pytest
