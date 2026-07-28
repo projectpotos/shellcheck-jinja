@@ -20,7 +20,7 @@ dev = [
     { include-group = "test" },
     "yamllint==1.38.0",
     "ruff==0.15.22",
-    "pre-commit==4.6.0",
+    "pre-commit==4.6.1",
 ]
 
 [build-system]
