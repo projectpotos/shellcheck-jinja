@@ -1,6 +1,6 @@
 [project]
 name = "shellcheck-jinja"
-version = "0.3.0"
+version = "0.3.1"
 description = "Render Jinja2 shell templates with fixture data and lint them with shellcheck."
 readme = "README.md"
 requires-python = ">=3.12"
