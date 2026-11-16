@@ -26,7 +26,7 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
       - name: Setup uv project
-        uses: projectpotos/actions/setup-uv@31a073ace13fa1f689fe54cd71754f0ecba6dfb6 # v0.5.0
+        uses: projectpotos/actions/setup-uv@60001bf86fe665f84dfaedd1f6bc03073a11bea5 # v0.8.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -36,7 +36,7 @@ jobs:
   lint:
     permissions:
       contents: read
-    uses: projectpotos/actions/.github/workflows/test-lint.yaml@31a073ace13fa1f689fe54cd71754f0ecba6dfb6 # v0.5.0
+    uses: projectpotos/actions/.github/workflows/test-lint.yaml@60001bf86fe665f84dfaedd1f6bc03073a11bea5 # v0.8.0
     with:
       ruff: true
       ruff-group: dev
@@ -52,6 +52,6 @@ jobs:
     permissions: {}
     steps:
       - name: Verify no required job failed or was cancelled
-        uses: projectpotos/actions/all-green@31a073ace13fa1f689fe54cd71754f0ecba6dfb6 # v0.5.0
+        uses: projectpotos/actions/all-green@60001bf86fe665f84dfaedd1f6bc03073a11bea5 # v0.8.0
         with:
           needs: ${{ toJSON(needs) }}
